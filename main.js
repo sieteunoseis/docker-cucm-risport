@@ -3,10 +3,6 @@ const Models = require("./js/Models");
 const StatusReason = require("./js/statusReasons");
 const { InfluxDB, Point } = require("@influxdata/influxdb-client");
 
-if (process.env.NODE_ENV !== "production") {
-  require("dotenv").config();
-}
-
 const org = process.env.INFLUXDB_ORG;
 const bucket = process.env.INFLUXDB_BUCKET;
 

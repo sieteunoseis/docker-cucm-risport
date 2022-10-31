@@ -1,4 +1,7 @@
-const ciscoRisPort = require("cisco-risport");
+const risPortService = require("cisco-risport");
+const Models = require("./js/Models");
+const StatusReason = require("./js/statusReasons");
+
 const { InfluxDB, Point } = require("@influxdata/influxdb-client");
 const sleep = (waitTimeInMs) =>
   new Promise((resolve) => setTimeout(resolve, waitTimeInMs));
@@ -7,93 +10,96 @@ if (process.env.NODE_ENV !== "production") {
   require("dotenv").config();
 }
 
-const token = process.env.INFLUXDB_TOKEN;
 const org = process.env.INFLUXDB_ORG;
 const bucket = process.env.INFLUXDB_BUCKET;
 
 const client = new InfluxDB({
   url: process.env.INFLUXDB_URL,
-  token: token,
+  token: process.env.INFLUXDB_TOKEN,
 });
 
-const timer = process.env.TIMER; // Timer in milliseconds
+const interval = process.env.INTERVAL_TIMER;
+var selectItems;
 
-var settings = {
-  cucmip: process.env.CUCM_PUB,
-  cucmuser: process.env.CUCM_USERNAME,
-  cucmpass: process.env.CUCM_PASSWORD,
-};
+if (process.env.RISPORT_SELECTITEM) {
+  selectItems = process.env.RISPORT_SELECTITEM.split(", ").map((item) =>
+    item.trim()
+  );
+} else {
+  selectItems = "";
+}
 
 setInterval(function () {
   console.log(
-    "RISPORT DATA: Starting interval, process will run every 5 minutes"
+    `RISPORT DATA: Starting interval, process will run every ${
+      interval / 1000
+    } seconds`
   );
   (async () => {
     const writeApi = client.getWriteApi(org, bucket);
     var points = [];
     await sleep(timer).then(async () => {
-      let output = await ciscoRisPort
-        .selectCmDevice(
-          settings.cucmip,
-          settings.cucmuser,
-          settings.cucmpass,
-          "SelectCmDeviceExt", // Either SelectCmDevice or SelectCmDeviceExt
-          1000, // The maximum number of devices to return. The maximum parameter value is 1000.
-          "Any", // Device Class (Any, Phone, Gateway, H323, Cti, VoiceMail, MediaResources, HuntList, SIPTrunk, Unknown)
-          255, // Model Enum. Use 255 for "any model". Can use a string of model name and it will convert it to the enum (Example "SIP Trunk").
-          "Any", // Status (Any, Registered, UnRegistered, Rejected, PartiallyRegistered, Unknown)
-          "Name", // Select By (Name, IPV4Address, IPV6Address, DirNumber, Description, SIPStatus)
-          "", // Select Items. Can either be a single item string or an array of items. May include names, IP addresses, or directory numbers or * to return wildcard matches.
-          "Any", // Protocol (Any, SCCP, SIP, Unknown)
-          "Any" // Download Status (Any, Upgrading, Successful, Failed, Unknown)
-        )
-        .catch((err) => {
-          console.log(err);
-          return false;
+      var service = new risPortService(
+        process.env.CUCM_PUB,
+        process.env.CUCM_USERNAME,
+        process.env.CUCM_PASSWORD
+      );
+      var risportOutput = await service.selectCmDevice(
+        process.env.RISPORT_SOAPACTION,
+        process.env.RISPORT_MAXRETURNEDDEVICES,
+        process.env.RISPORT_DEVICECLASS,
+        process.env.RISPORT_MODEL,
+        process.env.RISPORT_STATUS,
+        process.env.RISPORT_NODE,
+        process.env.RISPORT_SELECTBY,
+        process.env.RISPORT_SELECTITEM,
+        process.env.RISPORT_PROTOCOL,
+        process.env.RISPORT_DOWNLOADSTATUS
+      );
+
+      if (Array.isArray(risportOutput)) {
+        risportOutput.map((item) => {
+          if (item.ReturnCode === "Ok") {
+            server = item.Name;
+            writeApi.useDefaultTags({ host: server });
+            item.CmDevices.item.map((item) => {
+              var d = new Date(0); // The 0 there is the key, which sets the date to the epoch
+              d.setUTCSeconds(item.TimeStamp);
+
+              points.push(
+                new Point(item.DeviceClass)
+                  .tag("ipAddress", item.IPAddress.item.IP)
+                  .tag(
+                    "statusReason",
+                    StatusReason[parseInt(item.StatusReason)]
+                  )
+                  .tag("name", item.Name)
+                  .tag("model", Models[parseInt(item.Model)])
+                  .tag("userId", item.LoginUserId)
+                  .tag("protocol", item.Protocol)
+                  .tag("activeLoad", item.ActiveLoadID)
+                  .tag("downloadStatus", item.DownloadStatus)
+                  .tag("registrationAttempts",item.RegistrationAttempts)
+                  .tag("status", item.Status)
+                  .stringField("lastRegistration",d)
+              );
+
+            });
+
+            writeApi.writePoints(points);
+            writeApi
+              .close()
+              .then(() => {
+                console.log(
+                  `RISPORT DATA: Wrote ${points.length} points to InfluxDB bucket ${bucket}`
+                );
+              })
+              .catch((e) => {
+                console.log("RISPORT DATA: InfluxDB write failed", e);
+              });
+          }
         });
-      console.log(JSON.stringify(output));
-      // if (Array.isArray(perfmonCounters)) {
-      //   for (const counter of perfmonCounters) {
-      //     var regExp = /\(([^)]+)\)/;
-      //     var nameSplit = counter["NS1:NAME"].split("\\");
-      //     nameSplit = nameSplit.filter(function (el) {
-      //       return el;
-      //     });
-
-      //     var matches = regExp.exec(nameSplit[1]);
-      //     writeApi.useDefaultTags({ host: server });
-      //     if (!Array.isArray(matches)) {
-      //       points.push(
-      //         new Point(object).floatField(nameSplit[2], counter["NS1:VALUE"])
-      //       );
-      //     } else {
-      //       points.push(
-      //         new Point(object)
-      //           .tag("instance", matches[1])
-      //           .floatField(nameSplit[2], counter["NS1:VALUE"])
-      //       );
-      //     }
-      //   }
-
-      //   writeApi.writePoints(points);
-      //   writeApi
-      //     .close()
-      //     .then(() => {
-      //       console.log(
-      //         server + " PERFMONCOLLECTCOUNTERDATA(INFLUXDB WRITE): FINISHED WRITING " + object.toUpperCase() + " DATA TO INFLUXDB"
-      //       );
-      //     })
-      //     .catch((e) => {
-      //       console.log(server + " PERFMONCOLLECTCOUNTERDATA(INFLUXDB WRITE): Finished ERROR");
-      //     });
-
-      //   console.log(
-      //     server + " PERFMONCOLLECTCOUNTERDATA(INTERVAL): Sleeping for " +
-      //       timer +
-      //       " between Perfmon Object. Finished processing: " +
-      //       object
-      //   );
-      // }
+      }
     });
   })();
-}, 30000);
+}, interval);

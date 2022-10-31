@@ -1,8 +1,9 @@
 {
   "name": "docker-cucm-risport",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "scripts": {
+    "start":"NODE_OPTIONS=--experimental-vm-modules NODE_NO_WARNINGS=1 NODE_TLS_REJECT_UNAUTHORIZED=0 node main.js",
     "docker:build": "docker build --platform linux/amd64 -t sieteunoseis/$npm_package_name:$npm_package_version -t sieteunoseis/$npm_package_name:latest .",
     "docker:push": "docker push sieteunoseis/$npm_package_name:$npm_package_version && docker push sieteunoseis/$npm_package_name:latest",
     "docker:prune": "docker system prune -a"

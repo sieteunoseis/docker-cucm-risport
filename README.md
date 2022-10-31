@@ -13,15 +13,24 @@ npm run docker:push
 
 ```node
 NODE_ENV=production
-CUCM_VERSION=<INSERT VERSION I.E. 12.5>
 CUCM_PUB=<INSERT IP ADDRESS>
 CUCM_USERNAME=<INSERT USERNAME>
 CUCM_PASSWORD=<INSERT PASSWORD>
-TIMER=3000
+INTERVAL_TIMER=3000
 INFLUXDB_TOKEN=<INSERT INFLUXDB TOKEN>
 INFLUXDB_ORG=<INSERT INFLUXDB ORG>
 INFLUXDB_BUCKET=cisco_risport
 INFLUXDB_URL=<INSERT INFLUXDB URL>
+RISPORT_SOAPACTION="SelectCmDeviceExt" # SelectCmDevice, SelectCmDeviceExt
+RISPORT_MAXRETURNEDDEVICES=1000 # Max is 1000
+RISPORT_DEVICECLASS="Any" # Any, Phone, Gateway, H323, Cti, VoiceMail, MediaResources, HuntList, SIPTrunk, Unknown
+RISPORT_MODEL="" # Either ENUM integer or string of model name
+RISPORT_STATUS="Any" # Any, Registered, UnRegistered, Rejected, PartiallyRegistered, Unknow
+RISPORT_NODE="" # The UC Manager node name to query. If no NodeName is given, all nodes in the cluster are queried.
+RISPORT_SELECTBY="Name" # Search by Name, IPV4Address, IPV6Address, DirNumber, Description, SIPStatus
+RISPORT_SELECTITEM="" # Either a single item or commma separated list
+RISPORT_PROTOCOL="Any" # Search by device protocol: Any, SCCP, SIP, Unknown
+RISPORT_DOWNLOADSTATUS="Any" # Any, Upgrading, Successful, Failed, Unknown
 ```
 
 Save to docker.txt file within project.

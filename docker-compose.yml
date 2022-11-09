@@ -1,0 +1,4 @@
+risport:
+  image: sieteunoseis/docker-cucm-risport:latest
+  env_file:
+    - .env

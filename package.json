@@ -1,6 +1,6 @@
 {
   "name": "docker-cucm-risport",
-  "version": "1.1.2",
+  "version": "1.1.4",
   "private": true,
   "scripts": {
     "start":"NODE_OPTIONS=--experimental-vm-modules NODE_NO_WARNINGS=1 NODE_TLS_REJECT_UNAUTHORIZED=0 node main.js",

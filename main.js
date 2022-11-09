@@ -11,7 +11,7 @@ const client = new InfluxDB({
   token: process.env.INFLUXDB_TOKEN,
 });
 
-const interval = process.env.INTERVAL_TIMER;
+const interval = process.env.INTERVAL_TIMER; // This should not be less than 4 seconds. By default RisPort70 accepts up to 18 requests per minute, combined across all RisPort70 applications
 var selectItems;
 
 if (process.env.RISPORT_SELECTITEM) {
@@ -55,9 +55,6 @@ setInterval(function () {
           server = item.Name;
           writeApi.useDefaultTags({ host: server });
           item.CmDevices.item.map((item) => {
-            var d = new Date(0); // The 0 there is the key, which sets the date to the epoch
-            d.setUTCSeconds(item.TimeStamp);
-
             points.push(
               new Point(item.DeviceClass)
                 .tag("ipAddress", item.IPAddress.item.IP)
@@ -69,8 +66,8 @@ setInterval(function () {
                 .tag("activeLoad", item.ActiveLoadID)
                 .tag("downloadStatus", item.DownloadStatus)
                 .tag("registrationAttempts", item.RegistrationAttempts)
-                .tag("status", item.Status)
-                .stringField("lastRegistration", d)
+                .tag("timeStamp", item.TimeStamp)
+                .stringField("status", item.Status)
             );
           });
 

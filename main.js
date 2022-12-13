@@ -54,7 +54,7 @@ setInterval(function () {
         if (item.ReturnCode === "Ok") {
           server = item.Name;
           writeApi.useDefaultTags({ host: server });
-          item.CmDevices.item.map((item) => {
+          item?.CmDevices?.item.map((item) => {
             points.push(
               new Point(item.DeviceClass)
                 .tag("ipAddress", item.IPAddress.item.IP)

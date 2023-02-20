@@ -21,69 +21,75 @@ if (process.env.RISPORT_SELECTITEM) {
 } else {
   selectItems = "";
 }
-
-setInterval(function () {
-  console.log(
-    `RISPORT DATA: Starting interval, process will run every ${
-      interval / 1000
-    } seconds`
-  );
-  (async () => {
-    const writeApi = client.getWriteApi(org, bucket);
-    var points = [];
-    var service = new risPortService(
-      process.env.CUCM_PUB,
-      process.env.CUCM_USERNAME,
-      process.env.CUCM_PASSWORD
+try {
+  setInterval(function () {
+    console.log(
+      `RISPORT DATA: Starting interval, process will run every ${
+        interval / 1000
+      } seconds`
     );
-    var risportOutput = await service.selectCmDevice(
-      process.env.RISPORT_SOAPACTION,
-      process.env.RISPORT_MAXRETURNEDDEVICES,
-      process.env.RISPORT_DEVICECLASS,
-      process.env.RISPORT_MODEL,
-      process.env.RISPORT_STATUS,
-      process.env.RISPORT_NODE,
-      process.env.RISPORT_SELECTBY,
-      process.env.RISPORT_SELECTITEM,
-      process.env.RISPORT_PROTOCOL,
-      process.env.RISPORT_DOWNLOADSTATUS
-    );
+    (async () => {
+      const writeApi = client.getWriteApi(org, bucket);
+      var points = [];
+      var service = new risPortService(
+        process.env.CUCM_PUB,
+        process.env.CUCM_USERNAME,
+        process.env.CUCM_PASSWORD
+      );
+      var risportOutput = await service.selectCmDevice(
+        process.env.RISPORT_SOAPACTION,
+        process.env.RISPORT_MAXRETURNEDDEVICES,
+        process.env.RISPORT_DEVICECLASS,
+        process.env.RISPORT_MODEL,
+        process.env.RISPORT_STATUS,
+        process.env.RISPORT_NODE,
+        process.env.RISPORT_SELECTBY,
+        process.env.RISPORT_SELECTITEM,
+        process.env.RISPORT_PROTOCOL,
+        process.env.RISPORT_DOWNLOADSTATUS
+      );
 
-    if (Array.isArray(risportOutput)) {
-      risportOutput.map((item) => {
-        if (item.ReturnCode === "Ok") {
-          server = item.Name;
-          writeApi.useDefaultTags({ host: server });
-          item?.CmDevices?.item.map((item) => {
-            points.push(
-              new Point(item.DeviceClass)
-                .tag("ipAddress", item.IPAddress.item.IP)
-                .tag("statusReason", StatusReason[parseInt(item.StatusReason)])
-                .tag("name", item.Name)
-                .tag("model", Models[parseInt(item.Model)])
-                .tag("userId", item.LoginUserId)
-                .tag("protocol", item.Protocol)
-                .tag("activeLoad", item.ActiveLoadID)
-                .tag("downloadStatus", item.DownloadStatus)
-                .tag("registrationAttempts", item.RegistrationAttempts)
-                .tag("timeStamp", item.TimeStamp)
-                .stringField("status", item.Status)
-            );
-          });
-
-          writeApi.writePoints(points);
-          writeApi
-            .close()
-            .then(() => {
-              console.log(
-                `RISPORT DATA: Wrote ${points.length} points to InfluxDB bucket ${bucket}`
+      if (Array.isArray(risportOutput)) {
+        risportOutput.map((item) => {
+          if (item.ReturnCode === "Ok") {
+            server = item.Name;
+            writeApi.useDefaultTags({ host: server });
+            item?.CmDevices?.item.map((item) => {
+              points.push(
+                new Point(item.DeviceClass)
+                  .tag("ipAddress", item.IPAddress.item.IP)
+                  .tag(
+                    "statusReason",
+                    StatusReason[parseInt(item.StatusReason)]
+                  )
+                  .tag("name", item.Name)
+                  .tag("model", Models[parseInt(item.Model)])
+                  .tag("userId", item.LoginUserId)
+                  .tag("protocol", item.Protocol)
+                  .tag("activeLoad", item.ActiveLoadID)
+                  .tag("downloadStatus", item.DownloadStatus)
+                  .tag("registrationAttempts", item.RegistrationAttempts)
+                  .tag("timeStamp", item.TimeStamp)
+                  .stringField("status", item.Status)
               );
-            })
-            .catch((e) => {
-              console.log("RISPORT DATA: InfluxDB write failed", e);
             });
-        }
-      });
-    }
-  })();
-}, interval);
+
+            writeApi.writePoints(points);
+            writeApi
+              .close()
+              .then(() => {
+                console.log(
+                  `RISPORT DATA: Wrote ${points.length} points to InfluxDB bucket ${bucket}`
+                );
+              })
+              .catch((e) => {
+                console.log("RISPORT DATA: InfluxDB write failed", e);
+              });
+          }
+        });
+      }
+    })();
+  }, interval);
+} catch (error) {
+  process.exit(1);
+}

@@ -59,7 +59,7 @@ try {
           if (item.ReturnCode === "Ok" && "CmDevices" in item) {
             server = item.Name;
             writeApi.useDefaultTags({ host: server });
-            if(Array.isArray(item?.CmDevices?.item)){
+            if (Array.isArray(item?.CmDevices?.item)) {
               // Array returned
               item?.CmDevices?.item.map((item) => {
                 points.push(
@@ -80,7 +80,7 @@ try {
                     .stringField("status", item.Status)
                 );
               });
-            }else{
+            } else {
               // Not an array returned
               points.push(
                 new Point(item?.CmDevices?.item.DeviceClass)
@@ -95,24 +95,27 @@ try {
                   .tag("protocol", item?.CmDevices?.item.Protocol)
                   .tag("activeLoad", item?.CmDevices?.item.ActiveLoadID)
                   .tag("downloadStatus", item?.CmDevices?.item.DownloadStatus)
-                  .tag("registrationAttempts", item?.CmDevices?.item.RegistrationAttempts)
+                  .tag(
+                    "registrationAttempts",
+                    item?.CmDevices?.item.RegistrationAttempts
+                  )
                   .tag("timeStamp", item?.CmDevices?.item.TimeStamp)
                   .stringField("status", item?.CmDevices?.item.Status)
               );
             }
 
             writeApi.writePoints(points);
-            writeApi
-              .close()
-              .then(() => {
-                console.log(
-                  `RISPORT DATA: Wrote ${points.length} points to InfluxDB bucket ${bucket}`
-                );
-              })
-              .catch((e) => {
-                console.log("RISPORT DATA: InfluxDB write failed", e);
-              });
           }
+          writeApi
+            .close()
+            .then(() => {
+              console.log(
+                `RISPORT DATA: Wrote ${points.length} points to InfluxDB bucket ${bucket}`
+              );
+            })
+            .catch((e) => {
+              console.log("RISPORT DATA: InfluxDB write failed", e);
+            });
         });
       }
     })();

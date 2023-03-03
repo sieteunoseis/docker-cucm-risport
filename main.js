@@ -3,6 +3,10 @@ const Models = require("./js/Models");
 const StatusReason = require("./js/statusReasons");
 const { InfluxDB, Point } = require("@influxdata/influxdb-client");
 
+if (process.env.NODE_ENV !== "production") {
+  require("dotenv").config();
+}
+
 const org = process.env.INFLUXDB_ORG;
 const bucket = process.env.INFLUXDB_BUCKET;
 
@@ -21,6 +25,7 @@ if (process.env.RISPORT_SELECTITEM) {
 } else {
   selectItems = "";
 }
+
 try {
   setInterval(function () {
     console.log(
@@ -44,35 +49,57 @@ try {
         process.env.RISPORT_STATUS,
         process.env.RISPORT_NODE,
         process.env.RISPORT_SELECTBY,
-        process.env.RISPORT_SELECTITEM,
+        selectItems,
         process.env.RISPORT_PROTOCOL,
         process.env.RISPORT_DOWNLOADSTATUS
       );
 
       if (Array.isArray(risportOutput)) {
         risportOutput.map((item) => {
-          if (item.ReturnCode === "Ok") {
+          if (item.ReturnCode === "Ok" && "CmDevices" in item) {
             server = item.Name;
             writeApi.useDefaultTags({ host: server });
-            item?.CmDevices?.item.map((item) => {
+            if(Array.isArray(item?.CmDevices?.item)){
+              // Array returned
+              item?.CmDevices?.item.map((item) => {
+                points.push(
+                  new Point(item.DeviceClass)
+                    .tag("ipAddress", item.IPAddress.item.IP)
+                    .tag(
+                      "statusReason",
+                      StatusReason[parseInt(item.StatusReason)]
+                    )
+                    .tag("name", item.Name)
+                    .tag("model", Models[parseInt(item.Model)])
+                    .tag("userId", item.LoginUserId)
+                    .tag("protocol", item.Protocol)
+                    .tag("activeLoad", item.ActiveLoadID)
+                    .tag("downloadStatus", item.DownloadStatus)
+                    .tag("registrationAttempts", item.RegistrationAttempts)
+                    .tag("timeStamp", item.TimeStamp)
+                    .stringField("status", item.Status)
+                );
+              });
+            }else{
+              // Not an array returned
               points.push(
-                new Point(item.DeviceClass)
-                  .tag("ipAddress", item.IPAddress.item.IP)
+                new Point(item?.CmDevices?.item.DeviceClass)
+                  .tag("ipAddress", item?.CmDevices?.item.IPAddress.item.IP)
                   .tag(
                     "statusReason",
-                    StatusReason[parseInt(item.StatusReason)]
+                    StatusReason[parseInt(item?.CmDevices?.item.StatusReason)]
                   )
-                  .tag("name", item.Name)
-                  .tag("model", Models[parseInt(item.Model)])
-                  .tag("userId", item.LoginUserId)
-                  .tag("protocol", item.Protocol)
-                  .tag("activeLoad", item.ActiveLoadID)
-                  .tag("downloadStatus", item.DownloadStatus)
-                  .tag("registrationAttempts", item.RegistrationAttempts)
-                  .tag("timeStamp", item.TimeStamp)
-                  .stringField("status", item.Status)
+                  .tag("name", item?.CmDevices?.item.Name)
+                  .tag("model", Models[parseInt(item?.CmDevices?.item.Model)])
+                  .tag("userId", item?.CmDevices?.item.LoginUserId)
+                  .tag("protocol", item?.CmDevices?.item.Protocol)
+                  .tag("activeLoad", item?.CmDevices?.item.ActiveLoadID)
+                  .tag("downloadStatus", item?.CmDevices?.item.DownloadStatus)
+                  .tag("registrationAttempts", item?.CmDevices?.item.RegistrationAttempts)
+                  .tag("timeStamp", item?.CmDevices?.item.TimeStamp)
+                  .stringField("status", item?.CmDevices?.item.Status)
               );
-            });
+            }
 
             writeApi.writePoints(points);
             writeApi

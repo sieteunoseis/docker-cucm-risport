@@ -10,10 +10,10 @@
   "private": false,
   "scripts": {
     "start":"NODE_OPTIONS=--experimental-vm-modules NODE_NO_WARNINGS=1 NODE_TLS_REJECT_UNAUTHORIZED=0 node main.js",
-    "docker:build": "docker build --platform linux/amd64 -t $npm_package_config_author/$npm_package_name:$npm_package_version -t $npm_package_config_author/$npm_package_name:latest .",
-    "docker:push": "docker push $npm_package_config_author/$npm_package_name:$npm_package_version && docker push $npm_package_config_author/$npm_package_name:latest",
-    "docker:run": "docker run -d --name $npm_package_name --restart=always --env-file=.env $npm_package_config_author/$npm_package_name:$npm_package_version",
-    "docker:remove": "docker stop $npm_package_name && docker rm $npm_package_name",
+    "docker:build": "docker build --platform $npm_package_config_docker_platform -t $npm_package_config_docker_username/$npm_package_name:$npm_package_version -t $npm_package_config_docker_username/$npm_package_name:latest .",
+    "docker:push": "docker push $npm_package_config_docker_username/$npm_package_name:$npm_package_version && docker push $npm_package_config_docker_username/$npm_package_name:latest",
+    "docker:run": "docker run -d --name $npm_package_config_docker_name --restart=always --env-file=.env $npm_package_config_docker_username/$npm_package_name:$npm_package_version",
+    "docker:remove": "docker stop $npm_package_config_docker_name && docker rm $npm_package_config_docker_name",
     "docker:prune": "docker system prune -a"
   },
   "dependencies": {
@@ -24,6 +24,8 @@
   "license": "MIT",
   "main": "main.js",
   "config": {
-    "author": "sieteunoseis"
+    "docker_username": "sieteunoseis",
+    "docker_platform": "linux/amd64",
+    "docker_run_name": "risport"
   }
 }

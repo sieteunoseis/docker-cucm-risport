@@ -3,29 +3,32 @@ const Models = require("./js/Models");
 const StatusReason = require("./js/statusReasons");
 const { InfluxDB, Point } = require("@influxdata/influxdb-client");
 
+// Use dotenv for enviromental variables if development
 if (process.env.NODE_ENV !== "production") {
   require("dotenv").config();
 }
 
+// Setup influxdb connection
 const org = process.env.INFLUXDB_ORG;
 const bucket = process.env.INFLUXDB_BUCKET;
-
 const client = new InfluxDB({
   url: process.env.INFLUXDB_URL,
   token: process.env.INFLUXDB_TOKEN,
 });
 
-const interval = process.env.INTERVAL_TIMER; // This should not be less than 4 seconds. By default RisPort70 accepts up to 18 requests per minute, combined across all RisPort70 applications
+// This should not be less than 4 seconds. By default RisPort70 accepts up to 18 requests per minute, combined across all RisPort70 applications
+const interval = process.env.INTERVAL_TIMER;
+// Set up variable to hold select items variable
 var selectItems;
-
 if (process.env.RISPORT_SELECTITEM) {
-  selectItems = process.env.RISPORT_SELECTITEM.split(", ").map((item) =>
+  selectItems = process.env.RISPORT_SELECTITEM.split(",").map((item) =>
     item.trim()
   );
 } else {
   selectItems = "";
 }
 
+// error check. if detected exit process.
 try {
   setInterval(function () {
     console.log(
@@ -77,7 +80,8 @@ try {
                     .tag("downloadStatus", item.DownloadStatus)
                     .tag("registrationAttempts", item.RegistrationAttempts)
                     .tag("timeStamp", item.TimeStamp)
-                    .stringField("status", item.Status)
+                    .tag("status", item.Status)
+                    .intField("reasonCode", item.StatusReason)
                 );
               });
             } else {
@@ -100,7 +104,8 @@ try {
                     item?.CmDevices?.item.RegistrationAttempts
                   )
                   .tag("timeStamp", item?.CmDevices?.item.TimeStamp)
-                  .stringField("status", item?.CmDevices?.item.Status)
+                  .tag("status", item?.CmDevices?.item.Status)
+                  .intField("reasonCode", item?.CmDevices?.item.StatusReason)
               );
             }
 

@@ -6,34 +6,36 @@ NodeJS application using Cisco RisPort API to send data to InfluxDB cloud.
 
 ```node
 npm run docker:build
-npm run docker:push
+npm run docker:run
 ```
 
 ## Needed Enviromental Variables
 
 ```node
-NODE_ENV=production
+NODE_ENV=production # production or development. uses dotenv for development purpose before building container
+PM2_PUBLIC_KEY= # Optional for pm2.keymetrics.io
+PM2_SECRET_KEY= # Optional for pm2.keymetrics.io
 CUCM_PUB=<INSERT IP ADDRESS>
 CUCM_USERNAME=<INSERT USERNAME>
 CUCM_PASSWORD=<INSERT PASSWORD>
-INTERVAL_TIMER=3000
+INTERVAL_TIMER=5000 # This should not be less than 4 seconds. By default RisPort70 accepts up to 18 requests per minute, combined across all RisPort70 applications
 INFLUXDB_TOKEN=<INSERT INFLUXDB TOKEN>
 INFLUXDB_ORG=<INSERT INFLUXDB ORG>
 INFLUXDB_BUCKET=cisco_risport
 INFLUXDB_URL=<INSERT INFLUXDB URL>
-RISPORT_SOAPACTION="SelectCmDeviceExt" # SelectCmDevice, SelectCmDeviceExt
+RISPORT_SOAPACTION=SelectCmDeviceExt # SelectCmDevice, SelectCmDeviceExt
 RISPORT_MAXRETURNEDDEVICES=1000 # Max is 1000
-RISPORT_DEVICECLASS="Any" # Any, Phone, Gateway, H323, Cti, VoiceMail, MediaResources, HuntList, SIPTrunk, Unknown
-RISPORT_MODEL="" # Either ENUM integer or string of model name
-RISPORT_STATUS="Any" # Any, Registered, UnRegistered, Rejected, PartiallyRegistered, Unknow
-RISPORT_NODE="" # The UC Manager node name to query. If no NodeName is given, all nodes in the cluster are queried.
-RISPORT_SELECTBY="Name" # Search by Name, IPV4Address, IPV6Address, DirNumber, Description, SIPStatus
-RISPORT_SELECTITEM="" # Either a single item or commma separated list
-RISPORT_PROTOCOL="Any" # Search by device protocol: Any, SCCP, SIP, Unknown
-RISPORT_DOWNLOADSTATUS="Any" # Any, Upgrading, Successful, Failed, Unknown
+RISPORT_DEVICECLASS=Any # Any, Phone, Gateway, H323, Cti, VoiceMail, MediaResources, HuntList, SIPTrunk, Unknown
+RISPORT_MODEL=255 # Either ENUM integer or string of model name. 255 for "any model."
+RISPORT_STATUS=Any # Any, Registered, UnRegistered, Rejected, PartiallyRegistered, Unknow
+RISPORT_NODE= # The UC Manager node name to query. If no NodeName is given, all nodes in the cluster are queried.
+RISPORT_SELECTBY=Name # Search by Name, IPV4Address, IPV6Address, DirNumber, Description, SIPStatus
+RISPORT_SELECTITEM= # Either a single item or commma separated list
+RISPORT_PROTOCOL=Any # Search by device protocol: Any, SCCP, SIP, Unknown
+RISPORT_DOWNLOADSTATUS=Any # Any, Upgrading, Successful, Failed, Unknown
 ```
 
-Save to docker.txt file within project.
+Save to .env file within project.
 
 To view Docker enviromental variables within container run:
 

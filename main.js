@@ -60,8 +60,6 @@ try {
         )
         .catch(console.error);
 
-      console.log(JSON.stringify(risportOutput));
-
       if (Array.isArray(risportOutput)) {
         risportOutput.map((item) => {
           if (item.ReturnCode === "Ok" && "CmDevices" in item) {

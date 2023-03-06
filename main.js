@@ -38,24 +38,27 @@ try {
     );
     (async () => {
       const writeApi = client.getWriteApi(org, bucket);
+
       var points = [];
       var service = new risPortService(
         process.env.CUCM_PUB,
         process.env.CUCM_USERNAME,
         process.env.CUCM_PASSWORD
       );
-      var risportOutput = await service.selectCmDevice(
-        process.env.RISPORT_SOAPACTION,
-        process.env.RISPORT_MAXRETURNEDDEVICES,
-        process.env.RISPORT_DEVICECLASS,
-        process.env.RISPORT_MODEL,
-        process.env.RISPORT_STATUS,
-        process.env.RISPORT_NODE,
-        process.env.RISPORT_SELECTBY,
-        selectItems,
-        process.env.RISPORT_PROTOCOL,
-        process.env.RISPORT_DOWNLOADSTATUS
-      );
+      var risportOutput = await service
+        .selectCmDevice(
+          process.env.RISPORT_SOAPACTION,
+          process.env.RISPORT_MAXRETURNEDDEVICES,
+          process.env.RISPORT_DEVICECLASS,
+          process.env.RISPORT_MODEL,
+          process.env.RISPORT_STATUS,
+          process.env.RISPORT_NODE,
+          process.env.RISPORT_SELECTBY,
+          selectItems,
+          process.env.RISPORT_PROTOCOL,
+          process.env.RISPORT_DOWNLOADSTATUS
+        )
+        .catch(console.error);
 
       if (Array.isArray(risportOutput)) {
         risportOutput.map((item) => {
@@ -111,20 +114,21 @@ try {
 
             writeApi.writePoints(points);
           }
-          writeApi
-            .close()
-            .then(() => {
-              console.log(
-                `RISPORT DATA: Wrote ${points.length} points to InfluxDB bucket ${bucket}`
-              );
-            })
-            .catch((e) => {
-              console.log("RISPORT DATA: InfluxDB write failed", e);
-            });
         });
+        writeApi
+          .close()
+          .then(() => {
+            console.log(
+              `RISPORT DATA: Wrote ${points.length} points to InfluxDB bucket ${bucket}`
+            );
+          })
+          .catch((e) => {
+            console.log("RISPORT DATA: InfluxDB write failed", e);
+          });
       }
     })();
   }, interval);
 } catch (error) {
+  console.log(error);
   process.exit(1);
 }

@@ -71,28 +71,28 @@ try {
                 // Fix for SIP trunks being partially registered
                 if (
                   item.Status === "UnRegistered" &&
-                  item.StatusReason === 0 &&
-                  item.Model === 131
+                  item.StatusReason === "0" &&
+                  item.DeviceClass === "SIPTrunk"
                 ) {
-                  item.StatusReason = 2;
+                  item.StatusReason = "2";
                 }
 
                 // Fix for SIP trunks being unregistered but StatusReason showing as registered
                 if (
                   item.Status === "Unknown" &&
-                  item.StatusReason === 0 &&
-                  item.Model === 131
+                  item.StatusReason === "0" &&
+                  item.DeviceClass === "SIPTrunk"
                 ) {
-                  item.StatusReason = 3;
+                  item.StatusReason = "3";
                 }
 
                 // Fix for SIP trunks being rejected but StatusReason showing as registered
                 if (
                   item.Status === "Rejected" &&
-                  item.StatusReason === 0 &&
-                  item.Model === 131
+                  item.StatusReason === "0" &&
+                  item.DeviceClass === "SIPTrunk"
                 ) {
-                  item.StatusReason = 4;
+                  item.StatusReason = "4";
                 }
 
                 // If we get a StatusReason that is not defined set it to Unknown

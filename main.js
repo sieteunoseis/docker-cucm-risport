@@ -60,6 +60,8 @@ try {
         )
         .catch(console.error);
 
+      console.log(JSON.stringify(risportOutput));
+
       if (Array.isArray(risportOutput)) {
         risportOutput.map((item) => {
           if (item.ReturnCode === "Ok" && "CmDevices" in item) {
@@ -68,6 +70,38 @@ try {
             if (Array.isArray(item?.CmDevices?.item)) {
               // Array returned
               item?.CmDevices?.item.map((item) => {
+                // Fix for SIP trunks being partially registered
+                if (
+                  item.Status === "UnRegistered" &&
+                  item.StatusReason === 0 &&
+                  item.Model === 131
+                ) {
+                  item.StatusReason = 2;
+                }
+
+                // Fix for SIP trunks being unregistered but StatusReason showing as registered
+                if (
+                  item.Status === "Unknown" &&
+                  item.StatusReason === 0 &&
+                  item.Model === 131
+                ) {
+                  item.StatusReason = 3;
+                }
+
+                // Fix for SIP trunks being rejected but StatusReason showing as registered
+                if (
+                  item.Status === "Rejected" &&
+                  item.StatusReason === 0 &&
+                  item.Model === 131
+                ) {
+                  item.StatusReason = 4;
+                }
+
+                // If we get a StatusReason that is not defined set it to Unknown
+                if (!StatusReason.hasOwnProperty(parseInt(item.StatusReason))) {
+                  item.StatusReason = 1;
+                }
+
                 points.push(
                   new Point(item.DeviceClass)
                     .tag("ipAddress", item.IPAddress.item.IP)

@@ -1,6 +1,9 @@
 var StatusReason = {
   0: "Registered",
   1: "Unknown",
+  2: "Partial Service",
+  3: "No Service",
+  4: "Rejected",
   6: "ConnectivityError",
   8: "DeviceInitiatedReset",
   9: "CallManagerReset",

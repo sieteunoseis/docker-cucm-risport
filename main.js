@@ -121,6 +121,39 @@ try {
               });
             } else {
               // Not an array returned
+
+              // Fix for SIP trunks being partially registered
+              if (
+                item?.CmDevices?.item.Status === "UnRegistered" &&
+                item?.CmDevices?.item.StatusReason === "0" &&
+                item?.CmDevices?.item.DeviceClass === "SIPTrunk"
+              ) {
+                item.CmDevices.item.StatusReason = "2";
+              }
+
+              // Fix for SIP trunks being unregistered but StatusReason showing as registered
+              if (
+                item?.CmDevices?.item.Status === "Unknown" &&
+                item?.CmDevices?.item.StatusReason === "0" &&
+                item?.CmDevices?.item.DeviceClass === "SIPTrunk"
+              ) {
+                item.CmDevices.item.StatusReason = "3";
+              }
+
+              // Fix for SIP trunks being rejected but StatusReason showing as registered
+              if (
+                item?.CmDevices?.item.Status === "Rejected" &&
+                item?.CmDevices?.item.StatusReason === "0" &&
+                item?.CmDevices?.item.DeviceClass === "SIPTrunk"
+              ) {
+                item.CmDevices.item.StatusReason = "4";
+              }
+
+              // If we get a StatusReason that is not defined set it to Unknown
+              if (!StatusReason.hasOwnProperty(parseInt(item?.CmDevices?.item.StatusReason))) {
+                item.CmDevices.item.StatusReason = 1;
+              }
+
               points.push(
                 new Point(item?.CmDevices?.item.DeviceClass)
                   .tag("ipAddress", item?.CmDevices?.item.IPAddress.item.IP)

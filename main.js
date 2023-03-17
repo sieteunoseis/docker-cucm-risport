@@ -161,7 +161,7 @@ try {
                     "statusReason",
                     StatusReason[parseInt(item?.CmDevices?.item.StatusReason)]
                   )
-                  .tag("name", item?.CmDevices?.item.Name)
+                  .tag("deviceName", item?.CmDevices?.item.Name)
                   .tag("model", Models[parseInt(item?.CmDevices?.item.Model)])
                   .tag("userId", item?.CmDevices?.item.LoginUserId)
                   .tag("protocol", item?.CmDevices?.item.Protocol)

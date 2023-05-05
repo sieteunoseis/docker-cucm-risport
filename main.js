@@ -2,26 +2,61 @@ const risPortService = require("cisco-risport");
 const Models = require("./js/Models");
 const StatusReason = require("./js/statusReasons");
 const { InfluxDB, Point } = require("@influxdata/influxdb-client");
+const { cleanEnv, str, host, num } = require("envalid");
 
-// Use dotenv for enviromental variables if development
-if (process.env.NODE_ENV !== "production") {
-  require("dotenv").config();
+// If not production load the local env file
+if (process.env.NODE_ENV === "development") {
+  require("dotenv").config({ path: `${__dirname}/env/development.env` });
+} else if (process.env.NODE_ENV === "test") {
+  require("dotenv").config({ path: `${__dirname}/env/test.env` });
+} else if (process.env.NODE_ENV === "staging") {
+  require("dotenv").config({ path: `${__dirname}/env/staging.env` });
 }
 
+const env = cleanEnv(process.env, {
+  NODE_ENV: str({
+    choices: ["development", "test", "production", "staging"],
+    desc: "Node environment",
+  }),
+  CUCM_HOSTNAME: host({ desc: "Cisco CUCM Hostname or IP Address." }),
+  CUCM_USERNAME: str({ desc: "Cisco CUCM AXL Username." }),
+  CUCM_PASSWORD: str({ desc: "Cisco CUCM AXL Password." }),
+  INTERVAL_TIMER: num({
+    default: 5000,
+    desc: "Interval timer. This should not be less than 4 seconds. By default RisPort70 accepts up to 18 requests per minute, combined across all RisPort70 applications.",
+  }),
+  INFLUXDB_TOKEN: str({ desc: "InfluxDB API token." }),
+  INFLUXDB_ORG: str({ desc: "InfluxDB organization id." }),
+  INFLUXDB_BUCKET: str({ desc: "InfluxDB bucket to save data to." }),
+  INFLUXDB_URL: str({ desc: "URL of InfluxDB. i.e. http://hostname:8086." }),
+  RISPORT_SOAPACTION: str({
+    desc: "SelectCmDevice or SelectCmDeviceExt",
+  }),
+  RISPORT_MAXRETURNEDDEVICES: num({ default: 1000, desc: "Max returned devices" }),
+  RISPORT_DEVICECLASS: str({ desc: "Device class to search for" }),
+  RISPORT_MODEL: str({ desc: "Model to search for" }),
+  RISPORT_STATUS: str({ desc: "Status to search for" }),
+  RISPORT_NODE: str({ desc: "Node to search for" }),
+  RISPORT_SELECTBY: str({ desc: "Select by" }),
+  RISPORT_SELECTITEM: str({ desc: "Select item" }),
+  RISPORT_PROTOCOL: str({ desc: "Protocol to search for" }),
+  RISPORT_DOWNLOADSTATUS: str({ desc: "Download status to search for" })
+});
+
 // Setup influxdb connection
-const org = process.env.INFLUXDB_ORG;
-const bucket = process.env.INFLUXDB_BUCKET;
+const org = env.INFLUXDB_ORG;
+const bucket = env.INFLUXDB_BUCKET;
 const client = new InfluxDB({
-  url: process.env.INFLUXDB_URL,
-  token: process.env.INFLUXDB_TOKEN,
+  url: env.INFLUXDB_URL,
+  token: env.INFLUXDB_TOKEN,
 });
 
 // This should not be less than 4 seconds. By default RisPort70 accepts up to 18 requests per minute, combined across all RisPort70 applications
-const interval = process.env.INTERVAL_TIMER;
+const interval = env.INTERVAL_TIMER;
 // Set up variable to hold select items variable
 var selectItems;
-if (process.env.RISPORT_SELECTITEM) {
-  selectItems = process.env.RISPORT_SELECTITEM.split(",").map((item) =>
+if (env.RISPORT_SELECTITEM) {
+  selectItems = env.RISPORT_SELECTITEM.split(",").map((item) =>
     item.trim()
   );
 } else {
@@ -41,22 +76,22 @@ try {
 
       var points = [];
       var service = new risPortService(
-        process.env.CUCM_PUB,
-        process.env.CUCM_USERNAME,
-        process.env.CUCM_PASSWORD
+        env.CUCM_HOSTNAME,
+        env.CUCM_USERNAME,
+        env.CUCM_PASSWORD
       );
       var risportOutput = await service
         .selectCmDevice(
-          process.env.RISPORT_SOAPACTION,
-          process.env.RISPORT_MAXRETURNEDDEVICES,
-          process.env.RISPORT_DEVICECLASS,
-          process.env.RISPORT_MODEL,
-          process.env.RISPORT_STATUS,
-          process.env.RISPORT_NODE,
-          process.env.RISPORT_SELECTBY,
+          env.RISPORT_SOAPACTION,
+          env.RISPORT_MAXRETURNEDDEVICES,
+          env.RISPORT_DEVICECLASS,
+          env.RISPORT_MODEL,
+          env.RISPORT_STATUS,
+          env.RISPORT_NODE,
+          env.RISPORT_SELECTBY,
           selectItems,
-          process.env.RISPORT_PROTOCOL,
-          process.env.RISPORT_DOWNLOADSTATUS
+          env.RISPORT_PROTOCOL,
+          env.RISPORT_DOWNLOADSTATUS
         )
         .catch(console.error);
 

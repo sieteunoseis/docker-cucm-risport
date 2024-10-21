@@ -1,6 +1,4 @@
 const risPortService = require("cisco-risport");
-const Models = require("./js/Models");
-const StatusReason = require("./js/statusReasons");
 const { InfluxDB, Point } = require("@influxdata/influxdb-client");
 const { cleanEnv, str, host, num } = require("envalid");
 
@@ -80,6 +78,10 @@ try {
         env.CUCM_USERNAME,
         env.CUCM_PASSWORD
       );
+
+      const Models = service.returnModels();
+      const StatusReason = service.returnStatusReasons();
+
       var risportOutput = await service
         .selectCmDevice(
           env.RISPORT_SOAPACTION,

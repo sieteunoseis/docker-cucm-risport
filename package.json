@@ -1,15 +1,18 @@
 {
   "name": "docker-cucm-risport",
   "description": "Docker container that collects RisPort data from Cisco VOS productions and uploads to InfluxDB database",
-  "version": "1.5.2",
+  "version": "1.5.3",
   "author": "Jeremy Worden <jeremy@automate.builders>",
   "repository": {
     "type": "git",
-    "url": "https://github.com/sieteunoseis/docker-cucm-risport"
+    "url": "git+https://github.com/sieteunoseis/docker-cucm-risport.git"
   },
   "private": false,
-   "scripts": {
-    "start": "NODE_OPTIONS=--experimental-vm-modules NODE_NO_WARNINGS=1 NODE_TLS_REJECT_UNAUTHORIZED=0 NODE_ENV=development node main.js",
+  "scripts": {
+    "start": "NODE_OPTIONS=--experimental-vm-modules NODE_NO_WARNINGS=1 NODE_TLS_REJECT_UNAUTHORIZED=0 NODE_ENV=production node main.js",
+    "development": "NODE_OPTIONS=--experimental-vm-modules NODE_NO_WARNINGS=1 NODE_TLS_REJECT_UNAUTHORIZED=0 NODE_ENV=development node main.js",
+    "test": "NODE_OPTIONS=--experimental-vm-modules NODE_NO_WARNINGS=1 NODE_TLS_REJECT_UNAUTHORIZED=0 NODE_ENV=test node main.js",
+    "staging": "NODE_OPTIONS=--experimental-vm-modules NODE_NO_WARNINGS=1 NODE_TLS_REJECT_UNAUTHORIZED=0 NODE_ENV=staging node main.js",
     "docker:build": "docker build --platform $npm_package_config_docker_platform -t $npm_package_config_docker_username/$npm_package_name:$npm_package_version -t $npm_package_config_docker_username/$npm_package_name:latest .",
     "docker:push": "docker push $npm_package_config_docker_username/$npm_package_name:$npm_package_version && docker push $npm_package_config_docker_username/$npm_package_name:latest",
     "docker:run": "docker run -d --name $npm_package_config_docker_run_name --restart=always --env-file=.env $npm_package_config_docker_username/$npm_package_name:$npm_package_version",
@@ -28,5 +31,18 @@
     "docker_username": "sieteunoseis",
     "docker_platform": "linux/amd64",
     "docker_run_name": "risport"
-  }
+  },
+  "devDependencies": {},
+  "keywords": [
+    "cucm",
+    "docker",
+    "cisco",
+    "risport",
+    "registration",
+    "phones"
+  ],
+  "bugs": {
+    "url": "https://github.com/sieteunoseis/docker-cucm-risport/issues"
+  },
+  "homepage": "https://github.com/sieteunoseis/docker-cucm-risport#readme"
 }

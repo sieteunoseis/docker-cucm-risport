@@ -25,10 +25,7 @@ var ssoArr = sessionSSO.getSSOArray();
 // Check for rate control. If detected we will increase the interval to self heal.
 var rateControl = false;
 
-// error check. if detected exit process.
 try {
-  console.log(`RISPORT DATA: Starting RisPort70 data collection for ${env.CUCM_HOSTNAME}`);
-  request(); // start the first request
   let timer = setIntervalAsync(request, interval);
   async function request() {
     console.log(`RISPORT DATA: Collection will (re)run every ${interval / 1000} seconds`);

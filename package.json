@@ -1,7 +1,7 @@
 {
   "name": "docker-cucm-risport",
   "description": "Docker container that collects RisPort data from Cisco VOS productions and uploads to InfluxDB database",
-  "version": "1.5.3",
+  "version": "2.0.0",
   "author": "Jeremy Worden <jeremy@automate.builders>",
   "repository": {
     "type": "git",
@@ -21,9 +21,12 @@
   },
   "dependencies": {
     "@influxdata/influxdb-client": "*",
+    "cisco-axl": "^1.2.5",
     "cisco-risport": "*",
     "dotenv": "*",
-    "envalid": "^7.3.1"
+    "envalid": "^7.3.1",
+    "log-timestamp": "^0.3.0",
+    "set-interval-async": "^3.0.3"
   },
   "license": "MIT",
   "main": "main.js",
@@ -32,7 +35,6 @@
     "docker_platform": "linux/amd64",
     "docker_run_name": "risport"
   },
-  "devDependencies": {},
   "keywords": [
     "cucm",
     "docker",

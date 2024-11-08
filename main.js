@@ -1,45 +1,11 @@
 const risPortService = require("cisco-risport");
 const { InfluxDB, Point } = require("@influxdata/influxdb-client");
-const { cleanEnv, str, host, num } = require("envalid");
-
-// If not production load the local env file
-if (process.env.NODE_ENV === "development") {
-  require("dotenv").config({ path: `${__dirname}/env/development.env` });
-} else if (process.env.NODE_ENV === "test") {
-  require("dotenv").config({ path: `${__dirname}/env/test.env` });
-} else if (process.env.NODE_ENV === "staging") {
-  require("dotenv").config({ path: `${__dirname}/env/staging.env` });
-}
-
-const env = cleanEnv(process.env, {
-  NODE_ENV: str({
-    choices: ["development", "test", "production", "staging"],
-    desc: "Node environment",
-  }),
-  CUCM_HOSTNAME: host({ desc: "Cisco CUCM Hostname or IP Address." }),
-  CUCM_USERNAME: str({ desc: "Cisco CUCM AXL Username." }),
-  CUCM_PASSWORD: str({ desc: "Cisco CUCM AXL Password." }),
-  INTERVAL_TIMER: num({
-    default: 5000,
-    desc: "Interval timer. This should not be less than 4 seconds. By default RisPort70 accepts up to 18 requests per minute, combined across all RisPort70 applications.",
-  }),
-  INFLUXDB_TOKEN: str({ desc: "InfluxDB API token." }),
-  INFLUXDB_ORG: str({ desc: "InfluxDB organization id." }),
-  INFLUXDB_BUCKET: str({ desc: "InfluxDB bucket to save data to." }),
-  INFLUXDB_URL: str({ desc: "URL of InfluxDB. i.e. http://hostname:8086." }),
-  RISPORT_SOAPACTION: str({
-    desc: "SelectCmDevice or SelectCmDeviceExt",
-  }),
-  RISPORT_MAXRETURNEDDEVICES: num({ default: 1000, desc: "Max returned devices" }),
-  RISPORT_DEVICECLASS: str({ desc: "Device class to search for" }),
-  RISPORT_MODEL: str({ desc: "Model to search for" }),
-  RISPORT_STATUS: str({ desc: "Status to search for" }),
-  RISPORT_NODE: str({ desc: "Node to search for" }),
-  RISPORT_SELECTBY: str({ desc: "Select by" }),
-  RISPORT_SELECTITEM: str({ desc: "Select item" }),
-  RISPORT_PROTOCOL: str({ desc: "Protocol to search for" }),
-  RISPORT_DOWNLOADSTATUS: str({ desc: "Download status to search for" })
-});
+const { setIntervalAsync, clearIntervalAsync } = require("set-interval-async/fixed");
+const { getEnv } = require("./js/helpers");
+const env = getEnv;
+const sessionSSO = require("./js/sessionSSO");
+// Add timestamp to console logs
+require("log-timestamp");
 
 // Setup influxdb connection
 const org = env.INFLUXDB_ORG;
@@ -50,55 +16,44 @@ const client = new InfluxDB({
 });
 
 // This should not be less than 4 seconds. By default RisPort70 accepts up to 18 requests per minute, combined across all RisPort70 applications
-const interval = env.INTERVAL_TIMER;
-// Set up variable to hold select items variable
-var selectItems;
-if (env.RISPORT_SELECTITEM) {
-  selectItems = env.RISPORT_SELECTITEM.split(",").map((item) =>
-    item.trim()
-  );
-} else {
-  selectItems = "";
-}
+var interval = parseInt(env.RISPORT_INTERVAL);
+// Set up variable to hold select items variable. If set convert to an array, otherwise set to empty string
+var selectItems = env.RISPORT_SELECTITEM ? env.RISPORT_SELECTITEM.split(",").map((item) => item.trim()) : "";
+
+//SSO Array to store cookies for each server. This is used to keep the session alive and reduce the number of logins per interval.
+var ssoArr = sessionSSO.getSSOArray();
+// Check for rate control. If detected we will increase the interval to self heal.
+var rateControl = false;
 
 // error check. if detected exit process.
 try {
-  setInterval(function () {
-    console.log(
-      `RISPORT DATA: Starting interval, process will run every ${
-        interval / 1000
-      } seconds`
-    );
-    (async () => {
-      const writeApi = client.getWriteApi(org, bucket);
+  console.log(`RISPORT DATA: Starting RisPort70 data collection for ${env.CUCM_HOSTNAME}`);
+  request(); // start the first request
+  let timer = setIntervalAsync(request, interval);
+  async function request() {
+    console.log(`RISPORT DATA: Collection will (re)run every ${interval / 1000} seconds`);
+    const writeApi = client.getWriteApi(org, bucket);
+    var points = [];
+    var service = new risPortService(env.CUCM_HOSTNAME, env.CUCM_USERNAME, env.CUCM_PASSWORD);
+    const Models = service.returnModels();
+    const StatusReason = service.returnStatusReasons();
+    try {
+      // Let's see if we have a cookie for this server, if so we will use it instead of basic auth.
+      const ssoIndex = ssoArr.findIndex((element) => element.name === env.CUCM_HOSTNAME);
+      if (ssoIndex !== -1) {
+        // Update the perfmon service with the SSO auth cookie
+        service = new risPortService(env.CUCM_HOSTNAME, "", "", { cookie: ssoArr[ssoIndex].cookie });
+      }
 
-      var points = [];
-      var service = new risPortService(
-        env.CUCM_HOSTNAME,
-        env.CUCM_USERNAME,
-        env.CUCM_PASSWORD
-      );
+      // Collect the counter data from the server
+      var risportOutput = await service.selectCmDevice(env.RISPORT_SOAPACTION, env.RISPORT_MAXRETURNEDDEVICES, env.RISPORT_DEVICECLASS, env.RISPORT_MODEL, env.RISPORT_STATUS, env.RISPORT_NODE, env.RISPORT_SELECTBY, selectItems, env.RISPORT_PROTOCOL, env.RISPORT_DOWNLOADSTATUS);
 
-      const Models = service.returnModels();
-      const StatusReason = service.returnStatusReasons();
+      if (risportOutput.cookie) {
+        ssoArr = sessionSSO.updateSSO(env.CUCM_HOSTNAME, { cookie: risportOutput.cookie });
+      }
 
-      var risportOutput = await service
-        .selectCmDevice(
-          env.RISPORT_SOAPACTION,
-          env.RISPORT_MAXRETURNEDDEVICES,
-          env.RISPORT_DEVICECLASS,
-          env.RISPORT_MODEL,
-          env.RISPORT_STATUS,
-          env.RISPORT_NODE,
-          env.RISPORT_SELECTBY,
-          selectItems,
-          env.RISPORT_PROTOCOL,
-          env.RISPORT_DOWNLOADSTATUS
-        )
-        .catch(console.error);
-
-      if (Array.isArray(risportOutput)) {
-        risportOutput.map((item) => {
+      if (risportOutput.results) {
+        risportOutput.results.map((item) => {
           if (item.ReturnCode === "Ok" && "CmDevices" in item) {
             server = item.Name;
             writeApi.useDefaultTags({ host: server });
@@ -106,29 +61,17 @@ try {
               // Array returned
               item?.CmDevices?.item.map((item) => {
                 // Fix for SIP trunks being partially registered
-                if (
-                  item.Status === "UnRegistered" &&
-                  item.StatusReason === "0" &&
-                  item.DeviceClass === "SIPTrunk"
-                ) {
+                if (item.Status === "UnRegistered" && item.StatusReason === "0" && item.DeviceClass === "SIPTrunk") {
                   item.StatusReason = "2";
                 }
 
                 // Fix for SIP trunks being unregistered but StatusReason showing as registered
-                if (
-                  item.Status === "Unknown" &&
-                  item.StatusReason === "0" &&
-                  item.DeviceClass === "SIPTrunk"
-                ) {
+                if (item.Status === "Unknown" && item.StatusReason === "0" && item.DeviceClass === "SIPTrunk") {
                   item.StatusReason = "3";
                 }
 
                 // Fix for SIP trunks being rejected but StatusReason showing as registered
-                if (
-                  item.Status === "Rejected" &&
-                  item.StatusReason === "0" &&
-                  item.DeviceClass === "SIPTrunk"
-                ) {
+                if (item.Status === "Rejected" && item.StatusReason === "0" && item.DeviceClass === "SIPTrunk") {
                   item.StatusReason = "4";
                 }
 
@@ -140,10 +83,7 @@ try {
                 points.push(
                   new Point(item.DeviceClass)
                     .tag("ipAddress", item.IPAddress.item.IP)
-                    .tag(
-                      "statusReason",
-                      StatusReason[parseInt(item.StatusReason)]
-                    )
+                    .tag("statusReason", StatusReason[parseInt(item.StatusReason)])
                     .tag("name", item.Name)
                     .tag("model", Models[parseInt(item.Model)])
                     .tag("userId", item.LoginUserId)
@@ -160,29 +100,17 @@ try {
               // Not an array returned
 
               // Fix for SIP trunks being partially registered
-              if (
-                item?.CmDevices?.item.Status === "UnRegistered" &&
-                item?.CmDevices?.item.StatusReason === "0" &&
-                item?.CmDevices?.item.DeviceClass === "SIPTrunk"
-              ) {
+              if (item?.CmDevices?.item.Status === "UnRegistered" && item?.CmDevices?.item.StatusReason === "0" && item?.CmDevices?.item.DeviceClass === "SIPTrunk") {
                 item.CmDevices.item.StatusReason = "2";
               }
 
               // Fix for SIP trunks being unregistered but StatusReason showing as registered
-              if (
-                item?.CmDevices?.item.Status === "Unknown" &&
-                item?.CmDevices?.item.StatusReason === "0" &&
-                item?.CmDevices?.item.DeviceClass === "SIPTrunk"
-              ) {
+              if (item?.CmDevices?.item.Status === "Unknown" && item?.CmDevices?.item.StatusReason === "0" && item?.CmDevices?.item.DeviceClass === "SIPTrunk") {
                 item.CmDevices.item.StatusReason = "3";
               }
 
               // Fix for SIP trunks being rejected but StatusReason showing as registered
-              if (
-                item?.CmDevices?.item.Status === "Rejected" &&
-                item?.CmDevices?.item.StatusReason === "0" &&
-                item?.CmDevices?.item.DeviceClass === "SIPTrunk"
-              ) {
+              if (item?.CmDevices?.item.Status === "Rejected" && item?.CmDevices?.item.StatusReason === "0" && item?.CmDevices?.item.DeviceClass === "SIPTrunk") {
                 item.CmDevices.item.StatusReason = "4";
               }
 
@@ -194,20 +122,14 @@ try {
               points.push(
                 new Point(item?.CmDevices?.item.DeviceClass)
                   .tag("ipAddress", item?.CmDevices?.item.IPAddress.item.IP)
-                  .tag(
-                    "statusReason",
-                    StatusReason[parseInt(item?.CmDevices?.item.StatusReason)]
-                  )
+                  .tag("statusReason", StatusReason[parseInt(item?.CmDevices?.item.StatusReason)])
                   .tag("deviceName", item?.CmDevices?.item.Name)
                   .tag("model", Models[parseInt(item?.CmDevices?.item.Model)])
                   .tag("userId", item?.CmDevices?.item.LoginUserId)
                   .tag("protocol", item?.CmDevices?.item.Protocol)
                   .tag("activeLoad", item?.CmDevices?.item.ActiveLoadID)
                   .tag("downloadStatus", item?.CmDevices?.item.DownloadStatus)
-                  .tag(
-                    "registrationAttempts",
-                    item?.CmDevices?.item.RegistrationAttempts
-                  )
+                  .tag("registrationAttempts", item?.CmDevices?.item.RegistrationAttempts)
                   .tag("timeStamp", item?.CmDevices?.item.TimeStamp)
                   .tag("status", item?.CmDevices?.item.Status)
                   .intField("reasonCode", item?.CmDevices?.item.StatusReason)
@@ -217,20 +139,50 @@ try {
             writeApi.writePoints(points);
           }
         });
-        writeApi
-          .close()
-          .then(() => {
-            console.log(
-              `RISPORT DATA: Wrote ${points.length} points to InfluxDB bucket ${bucket}`
-            );
-          })
-          .catch((e) => {
-            console.log("RISPORT DATA: InfluxDB write failed", e);
-          });
+      } else {
+        console.log("risportOutput Error: No results returned.");
+        process.exit(5);
       }
-    })();
-  }, interval);
+    } catch (error) {
+      if (error.message.faultcode) {
+        if (error.message.faultcode === "RateControl") {
+          rateControl = true;
+        }
+      } else if (error.message == 503) {
+        console.error("openSession Error: Service Unavailable. Possible RisPort Service Error, received 503 error. Suggest rate limiting the number of counters or increasing the cooldown timer.");
+        process.exit(5);
+      } else {
+        console.error("risportOutput Error:", error);
+        process.exit(5);
+      }
+    }
+
+    writeApi
+      .close()
+      .then(() => {
+        console.log(`RISPORT DATA: Wrote ${points.length} points to InfluxDB bucket ${bucket}`);
+      })
+      .catch((e) => {
+        console.log("RISPORT DATA: InfluxDB write failed", e);
+        process.exit(5);
+      });
+
+    // Rate control detected. Let's increase the interval to self heal.
+    if (rateControl) {
+      clearIntervalAsync(timer); // stop the setInterval()
+      console.warn(`RISPORT DATA: RateControl detected. Doubling interval timer in attempt to self heal.`);
+      interval = interval * 2;
+      rateControl = false;
+      // Update the console before restarting the interval
+      timer = setIntervalAsync(request, interval);
+    } else if (interval != env.RISPORT_INTERVAL) {
+      clearIntervalAsync(timer); // stop the setInterval()
+      interval = env.RISPORT_INTERVAL;
+      // Update the console before restarting the interval
+      timer = setIntervalAsync(request, interval);
+    }
+  }
 } catch (error) {
   console.log(error);
-  process.exit(1);
+  process.exit(5);
 }

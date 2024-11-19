@@ -1,11 +1,11 @@
 {
-  "name": "docker-cucm-risport",
-  "description": "Docker container that collects RisPort data from Cisco VOS productions and uploads to InfluxDB database",
-  "version": "2.0.1",
+  "name": "risport-influx-exporter",
+  "description": "Docker container to collect Cisco RisPort stats and export to InfluxDB.",
+  "version": "2.0.2",
   "author": "Jeremy Worden <jeremy@automate.builders>",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/sieteunoseis/docker-cucm-risport.git"
+    "url": "git+https://github.com/sieteunoseis/risport-influx-exporter.git"
   },
   "private": false,
   "scripts": {
@@ -21,10 +21,10 @@
   },
   "dependencies": {
     "@influxdata/influxdb-client": "*",
-    "cisco-axl": "^1.2.5",
+    "cisco-axl": "*",
     "cisco-risport": "*",
     "dotenv": "*",
-    "envalid": "^7.3.1",
+    "envalid": "*",
     "log-timestamp": "^0.3.0",
     "set-interval-async": "^3.0.3"
   },
@@ -44,7 +44,7 @@
     "phones"
   ],
   "bugs": {
-    "url": "https://github.com/sieteunoseis/docker-cucm-risport/issues"
+    "url": "https://github.com/sieteunoseis/risport-influx-exporter/issues"
   },
-  "homepage": "https://github.com/sieteunoseis/docker-cucm-risport#readme"
+  "homepage": "https://github.com/sieteunoseis/risport-influx-exporter#readme"
 }

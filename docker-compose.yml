@@ -1,4 +1,4 @@
 risport:
-  image: sieteunoseis/docker-cucm-risport:latest
+  image: sieteunoseis/risport-influx-exporter:latest
   env_file:
     - .env

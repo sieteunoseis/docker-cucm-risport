@@ -4,7 +4,7 @@ const { setIntervalAsync, clearIntervalAsync } = require("set-interval-async/fix
 const env = getEnv;
 const risPortService = require("cisco-risport");
 const sessionSSO = require("./js/sessionSSO");
-require("log-timestamp");
+const log = require("fancy-log");
 
 // Setup influxdb connection
 const org = env.INFLUXDB_ORG;
@@ -15,9 +15,9 @@ const client = new InfluxDB({
 });
 
 // This should not be less than 4 seconds. By default RisPort70 accepts up to 18 requests per minute, combined across all RisPort70 applications
-var interval = parseInt(env.RP_INTERVAL);
+const interval = parseInt(env.RP_INTERVAL);
 // Set up variable to hold select items variable. If set convert to an array, otherwise set to empty string
-var selectItems = env.RP_SELECTITEM ? env.RP_SELECTITEM.split(",").map((item) => item.trim()) : "";
+const selectItems = env.RP_SELECTITEM ? env.RP_SELECTITEM.split(",").map((item) => item.trim()) : "";
 
 //SSO Array to store cookies for each server. This is used to keep the session alive and reduce the number of logins per interval.
 var ssoArr = sessionSSO.getSSOArray();
@@ -27,7 +27,7 @@ var rateControl = false;
 try {
   let timer = setIntervalAsync(request, interval);
   async function request() {
-    console.log(`RISPORT DATA: Collection will (re)run every ${interval / 1000} seconds`);
+    log(`RISPORT DATA: Collection will (re)run every ${interval / 1000} seconds`);
     const writeApi = client.getWriteApi(org, bucket);
     var points = [];
     var service = new risPortService(env.CUCM_HOSTNAME, env.CUCM_USERNAME, env.CUCM_PASSWORD);
@@ -136,15 +136,15 @@ try {
           }
         });
       } else {
-        console.log("risportOutput Error: No results returned.");
+        log.error("risportOutput Error: No results returned.");
         process.exit(0);
       }
     } catch (error) {
       if (error.status >= 500) {
-        console.error(`risportOutput Error: ${error.status} Service Unavailable. Possible RisPort Service Error, received ${error.status} error. Suggest rate limiting the number of counters or increasing the cooldown timer.`);
+        log.error(`risportOutput Error: ${error.status} Service Unavailable. Possible RisPort Service Error, received ${error.status} error. Suggest rate limiting the number of counters or increasing the cooldown timer.`);
         rateControl = true;
       } else {
-        console.error("risportOutput Error:", error);
+        log.error("risportOutput Error:", error);
         process.exit(0);
       }
     }
@@ -152,17 +152,17 @@ try {
     writeApi
       .close()
       .then(() => {
-        console.log(`RISPORT DATA: Wrote ${points.length} points to InfluxDB bucket ${bucket}`);
+        log(`RISPORT DATA: Wrote ${points.length} points to InfluxDB bucket ${bucket}`);
       })
       .catch((e) => {
-        console.log("RISPORT DATA: InfluxDB write failed", e);
+        log.error("RISPORT DATA: InfluxDB write failed", e);
         process.exit(0);
       });
 
     // Rate control detected. Let's increase the interval to self heal.
     if (rateControl) {
       clearIntervalAsync(timer); // stop the setInterval()
-      console.warn(`RISPORT DATA: RateControl detected. Doubling interval timer in attempt to self heal.`);
+      log.warn(`RISPORT DATA: RateControl detected. Doubling interval timer in attempt to self heal.`);
       interval = interval * 2;
       rateControl = false;
       // Update the console before restarting the interval
@@ -175,6 +175,6 @@ try {
     }
   }
 } catch (error) {
-  console.log(error);
+  log.error(error);
   process.exit(0);
 }
